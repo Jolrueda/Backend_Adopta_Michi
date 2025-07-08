@@ -10,7 +10,8 @@ interface UserPayload {
 }
 
 export default function generateToken(user: UserPayload) {
-  return jwt.sign(user, process.env.JWT_SECRET as string, {
+  const secret = process.env.JWT_SECRET || 'dev_secret'; // Valor por defecto para desarrollo
+  return jwt.sign(user, secret, {
     expiresIn: '7d',
   });
 } 

@@ -17,7 +17,7 @@ export async function getCats(req: Request, res: Response, next: NextFunction) {
     }
 
     values.push(limit, offset);
-    baseQuery += ` ORDER BY createdAt DESC LIMIT $${values.length - 1} OFFSET $${values.length}`;
+    baseQuery += ` ORDER BY createdAt LIMIT $${values.length - 1} OFFSET $${values.length}`;
 
     const result = await query(baseQuery, values);
     return res.json(result.rows);
@@ -72,6 +72,57 @@ export async function deleteCat(req: Request, res: Response, next: NextFunction)
     const { id } = req.params;
     await query('DELETE FROM cats WHERE id = $1', [id]);
     return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function patchCat(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+
+    // Campos permitidos para actualizar
+    const allowedFields = [
+      'nombre',
+      'edad',
+      'descripcion',
+      'estado',
+      'condicion',
+      'disponibilidad',
+      'imagen',
+      'imagen2',
+      'imagen3',
+    ];
+
+    // Construir dinámicamente la consulta según los campos presentes en el body
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        values.push(req.body[field]);
+        setClauses.push(`${field} = $${values.length}`);
+      }
+    });
+
+    if (!setClauses.length) {
+      return res.status(400).json({ message: 'No se proporcionaron campos para actualizar' });
+    }
+
+    // Agregar el id al final de los valores para la cláusula WHERE
+    values.push(id);
+
+    const queryText = `UPDATE cats SET ${setClauses.join(', ')} WHERE id = $${
+      values.length
+    } RETURNING *`;
+
+    const result = await query(queryText, values);
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: 'Gato no encontrado' });
+    }
+
+    return res.json(result.rows[0]);
   } catch (err) {
     return next(err);
   }
