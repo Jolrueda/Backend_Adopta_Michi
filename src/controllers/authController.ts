@@ -7,15 +7,32 @@ export async function register(req: Request, res: Response, next: NextFunction) 
   try {
     const { fullName, email, password, type } = req.body as any;
 
+    // Validar correo institucional
+    if (!email.endsWith('@unal.edu.co')) {
+      return res.status(400).json({
+        message: 'Debe registrarse con correo institucional @unal.edu.co',
+      });
+    }
+
+    // Validar contraseña con regex
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*.,]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener más de 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial',
+      });
+    }
+
+    // Verificar si el correo ya existe
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length) {
       return res.status(400).json({ message: 'El correo ya está registrado' });
     }
 
+    // Crear usuario
     const hash = await bcrypt.hash(password, 10);
     const result = await query(
-      'INSERT INTO users (fullName, email, password, type) VALUES ($1,$2,$3,$4) RETURNING id, fullName, email, type, createdAt',
-      [fullName, email, hash, type || 'regular']
+        'INSERT INTO users (fullName, email, password, type) VALUES ($1,$2,$3,$4) RETURNING id, fullName, email, type, createdAt',
+        [fullName, email, hash, type || 'regular']
     );
 
     const user = result.rows[0];
@@ -31,7 +48,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     const { email, password } = req.body as any;
     const result = await query('SELECT * FROM users WHERE email = $1', [email]);
     if (!result.rows.length) {
-      return res.status(400).json({ message: 'Credenciales inválidas' });
+      return res.status(400).json({ message: 'El correo no está registrado' });
     }
 
     const user = result.rows[0];
