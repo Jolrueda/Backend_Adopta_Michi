@@ -13,7 +13,13 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Configurar límites para evitar errores 413 y 431
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ 
+  limit: '5mb', 
+  extended: true,
+  parameterLimit: 50000
+}));
 
 app.get('/', (_req: Request, res: Response) => {
   res.json({ message: 'API de Adopta un Michi funcionando' });

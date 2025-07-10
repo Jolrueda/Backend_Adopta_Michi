@@ -18,7 +18,8 @@ export default function protect(req: Request, res: Response, next: NextFunction)
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+    const secret = process.env.JWT_SECRET || 'dev_secret';
+    const decoded = jwt.verify(token, secret) as JwtPayload;
     (req as any).user = decoded;
     next();
   } catch (err) {

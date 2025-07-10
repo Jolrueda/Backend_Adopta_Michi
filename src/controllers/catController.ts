@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { query } from '../db';
+// Valores permitidos para el campo "disponibilidad"
+export const ALLOWED_AVAILABILITIES = ['disponible', 'en proceso', 'adoptado'] as const;
 
 export async function getCats(req: Request, res: Response, next: NextFunction) {
   try {
@@ -17,9 +19,19 @@ export async function getCats(req: Request, res: Response, next: NextFunction) {
     }
 
     values.push(limit, offset);
-    baseQuery += ` ORDER BY createdAt LIMIT $${values.length - 1} OFFSET $${values.length}`;
+    // Orden estable por id para que la posición del gato no cambie al modificar disponibilidad
+    baseQuery += ` ORDER BY id LIMIT $${values.length - 1} OFFSET $${values.length}`;
 
+    // Consulta principal
     const result = await query(baseQuery, values);
+
+    // Consulta para total (para paginación)
+    const countQuery = disponibilidad
+      ? 'SELECT COUNT(*) FROM cats WHERE disponibilidad = $1'
+      : 'SELECT COUNT(*) FROM cats';
+    const countResult = await query(countQuery, disponibilidad ? [disponibilidad] : []);
+    res.set('X-Total-Count', countResult.rows[0].count);
+
     return res.json(result.rows);
   } catch (err) {
     return next(err);
@@ -81,6 +93,11 @@ export async function patchCat(req: Request, res: Response, next: NextFunction) 
   try {
     const { id } = req.params;
 
+    // Validar disponibilidad cuando se envía en el body
+    if (req.body.disponibilidad && !ALLOWED_AVAILABILITIES.includes(req.body.disponibilidad as any)) {
+      return res.status(400).json({ message: 'Valor de disponibilidad inválido' });
+    }
+
     // Campos permitidos para actualizar
     const allowedFields = [
       'nombre',
@@ -117,6 +134,32 @@ export async function patchCat(req: Request, res: Response, next: NextFunction) 
     } RETURNING *`;
 
     const result = await query(queryText, values);
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: 'Gato no encontrado' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// Controlador dedicado para actualizar únicamente la disponibilidad del gato
+export async function patchAvailability(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const { disponibilidad } = req.body as { disponibilidad?: string };
+
+    if (!disponibilidad) {
+      return res.status(400).json({ message: 'Se requiere el campo disponibilidad' });
+    }
+
+    if (!ALLOWED_AVAILABILITIES.includes(disponibilidad as any)) {
+      return res.status(400).json({ message: 'Valor de disponibilidad inválido' });
+    }
+
+    const result = await query('UPDATE cats SET disponibilidad = $1 WHERE id = $2 RETURNING *', [disponibilidad, id]);
 
     if (!result.rows.length) {
       return res.status(404).json({ message: 'Gato no encontrado' });

@@ -37,9 +37,34 @@ export async function updateStatus(req: Request, res: Response, next: NextFuncti
   try {
     const { id } = req.params;
     const { status } = req.body as { status: string };
-    const result = await query('UPDATE adoption_requests SET status=$1 WHERE id=$2 RETURNING *', [status, id]);
-    if (!result.rows.length) return res.status(404).json({ message: 'Solicitud no encontrada' });
-    return res.json(result.rows[0]);
+
+    const ALLOWED_STATUS = ['pendiente', 'aceptada', 'rechazada'] as const;
+    if (!ALLOWED_STATUS.includes(status as any)) {
+      return res.status(400).json({ message: 'Estado inválido' });
+    }
+
+    // Actualizar la solicitud y obtener el catId relacionado
+    const requestResult = await query(
+      'UPDATE adoption_requests SET status=$1 WHERE id=$2 RETURNING catId, status',
+      [status, id]
+    );
+
+    if (!requestResult.rows.length) {
+      return res.status(404).json({ message: 'Solicitud no encontrada' });
+    }
+
+    const { catid: catId, status: finalStatus } = requestResult.rows[0] as any;
+
+    // Si la solicitud pasa a "aceptada" o "rechazada", actualizamos disponibilidad del gato
+    let nuevaDisponibilidad: string | null = null;
+    if (finalStatus === 'aceptada') nuevaDisponibilidad = 'adoptado';
+    if (finalStatus === 'rechazada') nuevaDisponibilidad = 'disponible';
+
+    if (nuevaDisponibilidad) {
+      await query('UPDATE cats SET disponibilidad=$1 WHERE id=$2', [nuevaDisponibilidad, catId]);
+    }
+
+    return res.json(requestResult.rows[0]);
   } catch (err) {
     return next(err);
   }
