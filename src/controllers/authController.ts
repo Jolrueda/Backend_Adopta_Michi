@@ -67,6 +67,14 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const { email, password } = req.body as any;
+
+    // Validar correo institucional
+    if (!email.endsWith('@unal.edu.co')) {
+      return res.status(400).json({
+        message: 'Debe iniciar sesión con un correo institucional @unal.edu.co',
+      });
+    }
+
     const result = await query('SELECT id, fullName, email, password, type, createdAt AS "createdAt", profilePicture AS "profilePicture" FROM users WHERE email = $1', [email]);
     if (!result.rows.length) {
       return res.status(400).json({ message: 'El correo no está registrado' });
