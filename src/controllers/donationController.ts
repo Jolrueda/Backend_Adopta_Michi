@@ -32,10 +32,11 @@ export async function createDonation(req: Request, res: Response, next: NextFunc
 
     // 👉 Insertar donación en la base de datos
     const result = await query(
-      `INSERT INTO donations (email, monto, nombre, ultimos4, fecha_tarjeta)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [email, monto, nombre, ultimos4, fecha_tarjeta]
+      `INSERT INTO donations (email, monto, nombre, ultimos4, fecha_tarjeta, cvv)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [email, monto, nombre, ultimos4, fecha_tarjeta, cvv]
     );
+    
 
     return res.status(201).json(result.rows[0]);
   } catch (err) {
