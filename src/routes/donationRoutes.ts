@@ -6,6 +6,7 @@ const router = Router();
 
 router.post('/', createDonation);
 router.get('/', protect, listDonations);
-router.get('/:id', protect, getDonationById);
+router.get('/:id',  protect, getDonationById);
+
 
 export default router; 

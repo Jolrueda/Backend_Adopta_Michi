@@ -143,4 +143,65 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
   } catch (err) {
     return next(err);
   }
-} 
+}
+
+export async function getUserByEmail(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = req.query;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Se requiere un correo válido en la consulta' });
+    }
+
+    const result = await query(
+        'SELECT id, fullName, email, type, createdAt AS "createdAt", profilePicture AS "profilePicture" FROM users WHERE email = $1',
+        [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    const user = result.rows[0];
+    return res.json(user);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function updatePassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const { password } = req.body as { password: string };
+
+    if (!id || !password) {
+      return res.status(400).json({ message: 'Faltan datos para actualizar la contraseña.' });
+    }
+
+    // Validar la nueva contraseña con el mismo patrón
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*.,]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener más de 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial',
+      });
+    }
+
+    // Hashear la nueva contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Actualizar en la base de datos
+    const result = await query(
+        'UPDATE users SET password = $1 WHERE id = $2 RETURNING id',
+        [hashedPassword, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    return res.json({ message: 'Contraseña actualizada exitosamente.' });
+  } catch (err) {
+    console.error('updatePassword:', err);
+    return next(err);
+  }
+}
