@@ -19,8 +19,8 @@ export async function getCats(req: Request, res: Response, next: NextFunction) {
     }
 
     values.push(limit, offset);
-    // Orden estable por id para que la posición del gato no cambie al modificar disponibilidad
-    baseQuery += ` ORDER BY id LIMIT $${values.length - 1} OFFSET $${values.length}`;
+    // Orden ascendente por id para que los gatos más nuevos aparezcan al final de la lista  
+    baseQuery += ` ORDER BY id ASC LIMIT $${values.length - 1} OFFSET $${values.length}`;
 
     // Consulta principal
     const result = await query(baseQuery, values);
